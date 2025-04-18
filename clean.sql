@@ -1,12 +1,5 @@
 START TRANSACTION;
 
-
-CREATE TABLE player2 (
-  player_id TEXT PRIMARY KEY,
-  player_name TEXT,
-  team_abbreviation TEXT
-);
-
 INSERT INTO player2 (player_id, player_name, team_abbreviation)
 SELECT DISTINCT 
   row_data->>4 AS player_id,
@@ -18,23 +11,6 @@ FROM nba_box_scores,
     '$.resultSets[*] ? (@.name == "PlayerStats").rowSet[*]'
   ) AS row_data
 WHERE row_data->>4 IS NOT NULL;
-
-
-CREATE TABLE stats2 (
-  game_id TEXT,
-  player_id TEXT,
-  min INTERVAL,
-  fga FLOAT,
-  fg_pct NUMERIC,
-  oreb FLOAT,
-  reb FLOAT,
-  ast FLOAT,
-  stl FLOAT,
-  blk FLOAT,
-  tos FLOAT,
-  pts FLOAT,
-  PRIMARY KEY (game_id, player_id)
-);
 
 
 INSERT INTO stats2 (
@@ -65,10 +41,6 @@ WHERE row_data->>4 IS NOT NULL
   AND row_data->>9 NOT LIKE 'DNP%'     
 ON CONFLICT (game_id, player_id) DO NOTHING;
 
-
-CREATE TABLE games2 (
-  game_id TEXT PRIMARY KEY
-);
 
 
 INSERT INTO games2 (game_id)
