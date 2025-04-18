@@ -10,7 +10,8 @@ FROM nba_box_scores,
     raw_json,
     '$.resultSets[*] ? (@.name == "PlayerStats").rowSet[*]'
   ) AS row_data
-WHERE row_data->>4 IS NOT NULL;
+WHERE row_data->>4 IS NOT NULL
+ON CONFLICT (player_id) DO NOTHING;;
 
 
 INSERT INTO stats2 (
