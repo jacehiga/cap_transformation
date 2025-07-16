@@ -229,6 +229,57 @@ ON CONFLICT DO NOTHING;
 -- JSON MLB PREVIEW INSERTS --
 
 
+-- Pitcher preview inserts
+SELECT
+  raw_json::json ->> 'game_date' AS game_date,
+  unnest(
+    regexp_matches(
+      raw_json::json ->> 'preview_text',
+      'Probable Pitchers\n(\w+).*?VS\.\n(\w+)',
+      'gs'
+    )
+  ) AS pitcher_name
+FROM json_mlb_previews
+WHERE raw_json::json ->> 'preview_text' ILIKE '%Probable Pitchers%'
+ON CONFLICT (game_date, pitcher_name) DO NOTHING;
+
+
+
+
+-- Batter preview inserts
+INSERT INTO batter_preview (
+  game_date, batter_name, hr, rbi, ab, avg, ops
+)
+WITH lines AS (
+  SELECT
+    raw_json,
+    unnest(string_to_array(raw_json->>'preview_text', E'\n')) AS line,
+    generate_series(1, cardinality(string_to_array(raw_json->>'preview_text', E'\n'))) AS line_number
+  FROM json_mlb_previews
+),
+player_lines AS (
+  SELECT 
+    raw_json,
+    line,
+    regexp_matches(
+      line,
+      '(.+?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\.\d{3})\s+(\.\d{3})'
+    ) AS parts
+  FROM lines
+  WHERE line ~ '\d+\s+\d+\s+\d+\s+\.\d{3}\s+\.\d{3}'
+)
+SELECT
+  (raw_json->>'game_date')::DATE AS game_date,
+  regexp_replace(parts[1], '\s*(1B|2B|3B|SS|RF|LF|CF|C|DH|P|SP|RP)$', '') AS player_name,
+  parts[2]::INT AS HR,
+  parts[3]::INT AS RBI,
+  parts[4]::INT AS AB,
+  parts[5]::NUMERIC(5,3) AS AVG,
+  parts[6]::NUMERIC(5,3) AS OPS
+FROM player_lines
+ON CONFLICT (game_date, batter_name) DO NOTHING;
+
+
 
 
 
