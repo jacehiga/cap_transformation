@@ -28,94 +28,72 @@ SET
   
  
 
-
--- Insert Away Batters --
-WITH away_batters_expanded AS (
-  SELECT
-    (batter->>'personId')::BIGINT AS batter_id,
-    batter->>'position' AS position,
-    (raw_json->'away_team'->>'id')::BIGINT AS team_id
+-- Insert Players Table --
+WITH dedup_players AS (
+  SELECT DISTINCT ON (player_id)
+    (batter ->> 'personId')::bigint AS player_id,
+    batter ->> 'name' AS player_name
   FROM json_mlb,
-       LATERAL jsonb_array_elements(raw_json->'away_batters') AS batter
-  WHERE batter->>'personId' IS NOT NULL
-    AND batter->>'personId' != '0'
-    AND batter->>'position' IS NOT NULL
-)
-INSERT INTO batters (batter_id, position, team_id)
-SELECT DISTINCT batter_id, position, team_id
-FROM away_batters_expanded
-ON CONFLICT (batter_id, position, team_id) DO UPDATE
-SET team_id = EXCLUDED.team_id;
+       jsonb_array_elements(raw_json::jsonb -> 'away_batters') AS batter
+  WHERE (batter ->> 'personId')::int != 0
 
+  UNION
 
-
--- Insert Home Batters --
-WITH home_batters_expanded AS (
-  SELECT
-    (batter->>'personId')::BIGINT AS batter_id,
-    batter->>'position' AS position,
-    (raw_json->'home_team'->>'id')::BIGINT AS team_id
+  SELECT DISTINCT ON (player_id)
+    (batter ->> 'personId')::bigint AS player_id,
+    batter ->> 'name' AS player_name
   FROM json_mlb,
-       LATERAL jsonb_array_elements(raw_json->'home_batters') AS batter
-  WHERE batter->>'personId' IS NOT NULL
-    AND batter->>'personId' != '0'
-    AND batter->>'position' IS NOT NULL
-)
-INSERT INTO batters (batter_id, position, team_id)
-SELECT DISTINCT batter_id, position, team_id
-FROM home_batters_expanded
-ON CONFLICT (batter_id, position, team_id) DO UPDATE
-SET team_id = EXCLUDED.team_id;
-  
- 
- 
- 
+       jsonb_array_elements(raw_json::jsonb -> 'home_batters') AS batter
+  WHERE (batter ->> 'personId')::int != 0
 
--- Insert Away Pitchers --
-WITH indexed_away_pitchers AS (
-  SELECT
-    CAST(raw_json->>'game_id' AS INT) AS game_id,
-    (pitcher->>'personId')::BIGINT AS pitcher_id,
-    CASE 
-      WHEN row_number() OVER (PARTITION BY raw_json->>'game_id' ORDER BY ord) = 1 THEN 'SP'
-      ELSE 'RP'
-    END AS position,
-    (raw_json->'away_team'->>'id')::BIGINT AS team_id
+  UNION
+
+  SELECT DISTINCT ON (player_id)
+    (pitcher ->> 'personId')::bigint AS player_id,
+    pitcher ->> 'name' AS player_name
   FROM json_mlb,
-       LATERAL jsonb_array_elements(raw_json->'away_pitchers') WITH ORDINALITY AS t(pitcher, ord)
-  WHERE pitcher->>'personId' IS NOT NULL
-    AND pitcher->>'personId' != '0'
-)
-INSERT INTO pitchers (pitcher_id, position, team_id)
-SELECT DISTINCT pitcher_id, position, team_id
-FROM indexed_away_pitchers
-ON CONFLICT (pitcher_id, position, team_id) DO UPDATE
-SET team_id = EXCLUDED.team_id;
+       jsonb_array_elements(raw_json::jsonb -> 'away_pitchers') AS pitcher
+  WHERE (pitcher ->> 'personId')::int != 0
 
+  UNION
 
-
--- Insert Home Pitchers --
-WITH indexed_home_pitchers AS (
-  SELECT
-    CAST(raw_json->>'game_id' AS INT) AS game_id,
-    (pitcher->>'personId')::BIGINT AS pitcher_id,
-    CASE 
-      WHEN row_number() OVER (PARTITION BY raw_json->>'game_id' ORDER BY ord) = 1 THEN 'SP'
-      ELSE 'RP'
-    END AS position,
-    (raw_json->'home_team'->>'id')::BIGINT AS team_id
+  SELECT DISTINCT ON (player_id)
+    (pitcher ->> 'personId')::bigint AS player_id,
+    pitcher ->> 'name' AS player_name
   FROM json_mlb,
-       LATERAL jsonb_array_elements(raw_json->'home_pitchers') WITH ORDINALITY AS t(pitcher, ord)
-  WHERE pitcher->>'personId' IS NOT NULL
-    AND pitcher->>'personId' != '0'
+       jsonb_array_elements(raw_json::jsonb -> 'home_pitchers') AS pitcher
+  WHERE (pitcher ->> 'personId')::int != 0
 )
-INSERT INTO pitchers (pitcher_id, position, team_id)
-SELECT DISTINCT pitcher_id, position, team_id
-FROM indexed_home_pitchers
-ON CONFLICT (pitcher_id, position, team_id) DO UPDATE
-SET team_id = EXCLUDED.team_id;
-  
-  
+
+INSERT INTO players (player_id, player_name)
+SELECT * FROM dedup_players
+ON CONFLICT (player_id) DO UPDATE
+SET player_name = EXCLUDED.player_name;
+
+
+
+-- Insert Sides Table --
+
+-- Insert from away teams
+INSERT INTO sides (game_id, team_id, side)
+SELECT DISTINCT 
+  (raw_json->>'game_id')::BIGINT AS game_id,
+  (raw_json->'away_team'->>'id')::BIGINT AS team_id,
+  'away' AS side
+FROM json_mlb
+WHERE raw_json->'away_team'->>'id' IS NOT NULL
+
+UNION
+
+-- Insert from home teams
+SELECT DISTINCT 
+  (raw_json->>'game_id')::BIGINT AS game_id,
+  (raw_json->'home_team'->>'id')::BIGINT AS team_id,
+  'home' AS side
+FROM json_mlb
+WHERE raw_json->'home_team'->>'id' IS NOT NULL
+ON CONFLICT (game_id, team_id) DO NOTHING;
+
 
 
 
