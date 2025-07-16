@@ -104,7 +104,6 @@ WITH away_box_scores AS (
     (batter->>'personId')::BIGINT AS batter_id,
     (raw_json->'away_team'->>'id')::BIGINT AS team_id,
     batter->>'position' AS position,
-    'away' AS side,
     (batter->>'ab')::INT AS ab,
     (batter->>'h')::INT AS h,
     (batter->>'bb')::INT AS bb,
@@ -122,11 +121,11 @@ WITH away_box_scores AS (
     AND batter->>'position' IS NOT NULL
 )
 INSERT INTO batter_stats (
-  game_id, batter_id, team_id, position, side,
+  game_id, batter_id, team_id, position,
   ab, h, bb, r, rbi, so, double, triple, hr, sb
 )
 SELECT * FROM away_box_scores
-ON CONFLICT (game_id, batter_id, team_id, position) DO NOTHING;
+ON CONFLICT (game_id, batter_id) DO NOTHING;
 
 
 
@@ -137,7 +136,6 @@ WITH home_box_scores AS (
     (batter->>'personId')::BIGINT AS batter_id,
     (raw_json->'home_team'->>'id')::BIGINT AS team_id,
     batter->>'position' AS position,
-    'home' AS side,
     (batter->>'ab')::INT AS ab,
     (batter->>'h')::INT AS h,
     (batter->>'bb')::INT AS bb,
@@ -155,11 +153,11 @@ WITH home_box_scores AS (
     AND batter->>'position' IS NOT NULL
 )
 INSERT INTO batter_stats (
-  game_id, batter_id, team_id, position, side,
+  game_id, batter_id, team_id, position,
   ab, h, bb, r, rbi, so, double, triple, hr, sb
 )
 SELECT * FROM home_box_scores
-ON CONFLICT (game_id, batter_id, team_id, position) DO NOTHING;
+ON CONFLICT (game_id, batter_id) DO NOTHING;
 
 
 
@@ -171,7 +169,6 @@ WITH indexed_away_pitchers AS (
     (raw_json->>'game_id')::BIGINT AS game_id,
     (pitcher->>'personId')::BIGINT AS pitcher_id,
     (raw_json->'away_team'->>'id')::BIGINT AS team_id,
-    'away' AS side,
     CASE 
       WHEN row_number() OVER (PARTITION BY raw_json->>'game_id' ORDER BY ord) = 1 THEN 'SP'
       ELSE 'RP'
@@ -191,7 +188,7 @@ WITH indexed_away_pitchers AS (
   WHERE pitcher->>'personId' IS NOT NULL AND pitcher->>'personId' != '0'
 )
 INSERT INTO pitcher_stats (
-  game_id, pitcher_id, team_id, side, type, ip, h, r, er, bb, so, hr, pitches, strikes, era
+  game_id, pitcher_id, team_id, type, ip, h, r, er, bb, so, hr, pitches, strikes, era
 )
 SELECT * FROM indexed_away_pitchers
 ON CONFLICT DO NOTHING;
@@ -204,7 +201,6 @@ WITH indexed_home_pitchers AS (
     (raw_json->>'game_id')::BIGINT AS game_id,
     (pitcher->>'personId')::BIGINT AS pitcher_id,
     (raw_json->'home_team'->>'id')::BIGINT AS team_id,
-    'home' AS side,
     CASE 
       WHEN row_number() OVER (PARTITION BY raw_json->>'game_id' ORDER BY ord) = 1 THEN 'SP'
       ELSE 'RP'
@@ -224,7 +220,7 @@ WITH indexed_home_pitchers AS (
   WHERE pitcher->>'personId' IS NOT NULL AND pitcher->>'personId' != '0'
 )
 INSERT INTO pitcher_stats (
-  game_id, pitcher_id, team_id, side, type, ip, h, r, er, bb, so, hr, pitches, strikes, era
+  game_id, pitcher_id, team_id, type, ip, h, r, er, bb, so, hr, pitches, strikes, era
 )
 SELECT * FROM indexed_home_pitchers
 ON CONFLICT DO NOTHING;
