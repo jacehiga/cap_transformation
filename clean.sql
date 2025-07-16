@@ -1,6 +1,6 @@
 START TRANSACTION;
 
-
+-- JSON MLB BOX SCORE INSERTS --
 
 -- Insert Games --
 INSERT INTO games (
@@ -224,6 +224,12 @@ INSERT INTO pitcher_stats (
 )
 SELECT * FROM indexed_home_pitchers
 ON CONFLICT DO NOTHING;
+
+
+-- JSON MLB PREVIEW INSERTS --
+
+
+
 
 
 
