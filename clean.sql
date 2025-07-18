@@ -230,8 +230,11 @@ ON CONFLICT DO NOTHING;
 
 
 -- Pitcher preview inserts
+INSERT INTO pitcher_preview (
+  game_date, pitcher_name
+  )
 SELECT
-  raw_json::json ->> 'game_date' AS game_date,
+  (raw_json->>'game_date')::DATE AS game_date,
   unnest(
     regexp_matches(
       raw_json::json ->> 'preview_text',
