@@ -29,47 +29,49 @@ SET
  
 
 -- Insert Players Table --
-WITH dedup_players AS (
-  SELECT DISTINCT ON (player_id)
-    (batter ->> 'personId')::bigint AS player_id,
-    batter ->> 'name' AS player_name
+WITH all_players AS (
+  SELECT (batter ->> 'personId')::bigint AS player_id,
+         batter ->> 'name' AS player_name
   FROM json_mlb,
        jsonb_array_elements(raw_json::jsonb -> 'away_batters') AS batter
   WHERE (batter ->> 'personId')::int != 0
 
-  UNION
+  UNION ALL
 
-  SELECT DISTINCT ON (player_id)
-    (batter ->> 'personId')::bigint AS player_id,
-    batter ->> 'name' AS player_name
+  SELECT (batter ->> 'personId')::bigint AS player_id,
+         batter ->> 'name' AS player_name
   FROM json_mlb,
        jsonb_array_elements(raw_json::jsonb -> 'home_batters') AS batter
   WHERE (batter ->> 'personId')::int != 0
 
-  UNION
+  UNION ALL
 
-  SELECT DISTINCT ON (player_id)
-    (pitcher ->> 'personId')::bigint AS player_id,
-    pitcher ->> 'name' AS player_name
+  SELECT (pitcher ->> 'personId')::bigint AS player_id,
+         pitcher ->> 'name' AS player_name
   FROM json_mlb,
        jsonb_array_elements(raw_json::jsonb -> 'away_pitchers') AS pitcher
   WHERE (pitcher ->> 'personId')::int != 0
 
-  UNION
+  UNION ALL
 
-  SELECT DISTINCT ON (player_id)
-    (pitcher ->> 'personId')::bigint AS player_id,
-    pitcher ->> 'name' AS player_name
+  SELECT (pitcher ->> 'personId')::bigint AS player_id,
+         pitcher ->> 'name' AS player_name
   FROM json_mlb,
        jsonb_array_elements(raw_json::jsonb -> 'home_pitchers') AS pitcher
   WHERE (pitcher ->> 'personId')::int != 0
+),
+
+dedup_players AS (
+  SELECT DISTINCT ON (player_id)
+    player_id, player_name
+  FROM all_players
+  ORDER BY player_id, player_name
 )
 
 INSERT INTO players (player_id, player_name)
 SELECT * FROM dedup_players
 ON CONFLICT (player_id) DO UPDATE
 SET player_name = EXCLUDED.player_name;
-
 
 
 -- Insert Sides Table --
