@@ -230,20 +230,35 @@ ON CONFLICT DO NOTHING;
 
 
 -- Pitcher preview inserts
+
 INSERT INTO pitcher_preview (
-  game_date, pitcher_name
+  game_date, pitcher_name, opposing_team
   )
+WITH filtered AS (
+  SELECT
+    (raw_json->>'game_date')::date AS game_date,
+    raw_json->>'preview_text' AS text
+  FROM json_mlb_previews
+  WHERE raw_json->>'preview_text' ILIKE '%- - - - -%'
+),
+matchups AS (
+  SELECT
+    f.game_date,
+    match[1] AS opposing_team,
+    match[2] AS pitcher_name
+  FROM filtered f,
+  regexp_matches(
+    f.text,
+    '([A-Z]{1,3})\nvs\.\n([A-Za-z.''\- ]+)',
+    'g'
+  ) AS match
+)
 SELECT
-  (raw_json->>'game_date')::DATE AS game_date,
-  unnest(
-    regexp_matches(
-      raw_json::json ->> 'preview_text',
-      'Probable Pitchers\n(\w+).*?VS\.\n(\w+)',
-      'gs'
-    )
-  ) AS pitcher_name
-FROM json_mlb_previews
-WHERE raw_json::json ->> 'preview_text' ILIKE '%Probable Pitchers%'
+  game_date,
+  pitcher_name,
+  opposing_team
+FROM matchups
+ORDER BY game_date, opposing_team
 ON CONFLICT (game_date, pitcher_name) DO NOTHING;
 
 
